@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pharmacie</title>
+<meta name="description" content="Inventaire de la pharmacie familiale : scan, péremptions, refill.">
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+:root {
+  --bg: #f4f6f5; --surface: #ffffff; --surface-2: #eef2f1; --text: #17201e; --muted: #5f6b68;
+  --border: #d9e0de; --accent: #0f766e; --accent-ink: #ffffff; --accent-soft: #d5efeb;
+  --danger: #b42318; --danger-soft: #fde7e5; --warn: #9a5b00; --warn-soft: #fdf0d5; --ok: #1d7a3e; --ok-soft: #dcf2e3;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1413; --surface: #172020; --surface-2: #1f2a29; --text: #e6ecea; --muted: #97a4a1;
+    --border: #2b3836; --accent: #2bb3a3; --accent-ink: #04211e; --accent-soft: #123a36;
+    --danger: #ff7a6e; --danger-soft: #3a1714; --warn: #f2b453; --warn-soft: #36270d; --ok: #5fd08a; --ok-soft: #12311e;
+    --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1413; --surface: #172020; --surface-2: #1f2a29; --text: #e6ecea; --muted: #97a4a1;
+  --border: #2b3836; --accent: #2bb3a3; --accent-ink: #04211e; --accent-soft: #123a36;
+  --danger: #ff7a6e; --danger-soft: #3a1714; --warn: #f2b453; --warn-soft: #36270d; --ok: #5fd08a; --ok-soft: #12311e;
+  --shadow: none; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+button, input, select, textarea { font: inherit; color: inherit; }
+header.top { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 12px 16px 8px; padding-top: calc(12px + env(safe-area-inset-top)); }
+.top-row { display: flex; align-items: center; gap: 10px; max-width: 760px; margin: 0 auto; }
+.top-row h1 { font-size: 20px; margin: 0; flex: 1; }
+.sync-dot { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.sync-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.sync-dot[data-state="ok"]::before { background: var(--ok); }
+.sync-dot[data-state="pending"]::before { background: var(--warn); }
+.sync-dot[data-state="error"]::before { background: var(--danger); }
+main { max-width: 760px; margin: 0 auto; padding: 0 16px 16px; }
+.view[hidden] { display: none !important; }
+.search { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.chips { display: flex; gap: 8px; margin: 10px 0; overflow-x: auto; scrollbar-width: none; }
+.chip { border: 1px solid var(--border); background: var(--surface); padding: 6px 12px; border-radius: 999px; white-space: nowrap; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip .n { opacity: .75; margin-left: 4px; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); }
+.item { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: start; }
+.item .name { font-weight: 600; overflow-wrap: anywhere; }
+.item .meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.item .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.badge { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; white-space: nowrap; background: var(--surface-2); color: var(--muted); }
+.badge.expired { background: var(--danger-soft); color: var(--danger); }
+.badge.soon { background: var(--warn-soft); color: var(--warn); }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.btn { border: 1px solid var(--border); background: var(--surface-2); padding: 7px 12px; border-radius: 9px; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--danger); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.empty { text-align: center; color: var(--muted); padding: 40px 16px; }
+nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 6; display: flex; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+nav.tabs button { flex: 1; max-width: 190px; border: 0; background: none; padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: var(--muted); cursor: pointer; }
+nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+nav.tabs svg { width: 24px; height: 24px; }
+a.btn { text-decoration: none; display: inline-block; }
+.count { background: var(--danger); color: #fff; border-radius: 999px; font-size: 10px; padding: 0 5px; margin-left: 2px; }
+/* scanner */
+.scanner { position: relative; background: #000; border-radius: 14px; overflow: hidden; aspect-ratio: 3 / 4; max-height: 60vh; width: 100%; }
+.scanner video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scanner .frame { position: absolute; inset: 22% 14%; border: 3px solid rgba(255,255,255,.85); border-radius: 12px; box-shadow: 0 0 0 999px rgba(0,0,0,.35); pointer-events: none; }
+.scanner .hint { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; color: #fff; font-size: 13px; text-shadow: 0 1px 2px #000; }
+.scanner.flash .frame { border-color: #4ade80; }
+.seg { display: flex; background: var(--surface-2); border-radius: 10px; padding: 3px; margin: 10px 0; }
+.seg button { flex: 1; border: 0; background: none; padding: 8px; border-radius: 8px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); box-shadow: var(--shadow); font-weight: 600; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row > .grow { flex: 1; min-width: 0; }
+/* dialogs */
+dialog { border: 0; border-radius: 16px; padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); background: var(--surface); color: var(--text); box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog form, .dlg { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+dialog h2 { margin: 0; font-size: 18px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+label.f input, label.f select, label.f textarea { padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); font-size: 15px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dlg-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.suggest { border: 1px solid var(--border); border-radius: 9px; max-height: 220px; overflow: auto; background: var(--bg); }
+.suggest:empty { display: none; }
+.suggest button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: none; padding: 8px 10px; cursor: pointer; }
+.suggest button:last-child { border-bottom: 0; }
+.suggest small { color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+.src { font-size: 12px; color: var(--muted); background: var(--surface-2); padding: 6px 10px; border-radius: 8px; overflow-wrap: anywhere; }
+.toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; z-index: 50; max-width: calc(100vw - 32px); box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+.toast[hidden] { display: none; }
+h3.section { font-size: 14px; color: var(--muted); margin: 18px 0 8px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+a { color: var(--accent); }
+@media (max-width: 420px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <h1 id="title">Pharmacie</h1>
+    <span class="sync-dot" id="syncState" data-state="off">local</span>
+  </div>
+</header>
+
+<main>
+  <!-- Inventaire -->
+  <section class="view" id="view-inventory">
+    <input class="search" id="invSearch" type="search" placeholder="Rechercher dans l'inventaire…" autocomplete="off">
+    <div class="chips" id="invFilters">
+      <button class="chip" data-filter="all" aria-pressed="true">Tout<span class="n" id="n-all"></span></button>
+      <button class="chip" data-filter="soon" aria-pressed="false">Bientôt périmés<span class="n" id="n-soon"></span></button>
+      <button class="chip" data-filter="expired" aria-pressed="false">Périmés<span class="n" id="n-expired"></span></button>
+    </div>
+    <div class="list" id="invList"></div>
+  </section>
+
+  <!-- Scanner -->
+  <section class="view" id="view-scan" hidden>
+    <div class="seg" id="scanMode">
+      <button data-mode="add" aria-pressed="true">➕ Ajouter une boîte</button>
+      <button data-mode="empty" aria-pressed="false">🗑️ Boîte vide</button>
+    </div>
+    <div class="scanner" id="scanner">
+      <video id="video" playsinline muted></video>
+      <div class="frame"></div>
+      <div class="hint" id="scanHint">Visez le code DataMatrix ou le code-barres</div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="btnCamera">Démarrer la caméra</button>
+      <label class="btn" for="photoInput">📷 Depuis une photo</label>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+      <button class="btn" id="btnManual">Saisie manuelle</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input class="search grow" id="codeInput" inputmode="numeric" placeholder="…ou tapez un code (CNK, GTIN/EAN)">
+      <button class="btn primary" id="btnCode">OK</button>
+    </div>
+    <p class="note" id="dbInfo"></p>
+  </section>
+
+  <!-- Refill -->
+  <section class="view" id="view-refill" hidden>
+    <div class="row">
+      <input class="search grow" id="refillAdd" placeholder="Ajouter à la liste de refill…" autocomplete="off">
+      <button class="btn primary" id="btnRefillAdd">Ajouter</button>
+    </div>
+    <div class="suggest" id="refillSuggest" style="margin-top:6px"></div>
+    <div class="list" id="refillList" style="margin-top:12px"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="btnShareRefill">Partager / copier la liste</button></div>
+  </section>
+
+  <!-- Réglages -->
+  <section class="view" id="view-settings" hidden>
+    <h3 class="section">Synchronisation (repo GitHub privé)</h3>
+    <div class="card dlg" style="padding:12px">
+      <label class="f">Dépôt (propriétaire/nom)<input id="setRepo" placeholder="PythDom/Pharmacie-data"></label>
+      <label class="f">Jeton GitHub (fine-grained, Contents: Read &amp; Write sur ce dépôt uniquement)<input id="setToken" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+      <p class="note">Le jeton reste uniquement dans ce navigateur. La synchronisation ne fonctionne que sur pythdom.github.io.</p>
+      <div class="row"><button class="btn primary" id="btnSaveSync">Enregistrer</button><button class="btn" id="btnSyncNow">Synchroniser maintenant</button></div>
+      <p class="note" id="syncInfo"></p>
+    </div>
+    <h3 class="section">Alertes</h3>
+    <div class="card dlg" style="padding:12px">
+      <label class="f">« Bientôt périmé » à moins de (jours)<input id="setSoon" type="number" min="1" max="365"></label>
+      <label class="f">Thème<select id="setTheme"><option value="">Automatique</option><option value="light">Clair</option><option value="dark">Sombre</option></select></label>
+    </div>
+    <h3 class="section">Données</h3>
+    <div class="card dlg" style="padding:12px">
+      <div class="row"><button class="btn" id="btnExport">Exporter (JSON)</button><label class="btn" for="importInput">Importer…</label><input type="file" id="importInput" accept="application/json" hidden></div>
+      <p class="note" id="dbInfo2"></p>
+      <p class="note">Données médicaments : <a href="https://www.samportal.be/" target="_blank" rel="noopener">SAM v2</a> (AFMPS / eHealth), données ouvertes, mises à jour chaque semaine. Produits hors base : <a href="https://world.openproductsfacts.org/" target="_blank" rel="noopener">Open Products / Food / Beauty Facts</a>.</p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" id="tabs">
+  <button data-view="inventory" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 14h6"/></svg>Inventaire</button>
+  <button data-view="scan" class="scan-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 9v6M11 9v6M14 9v6M17 9v6"/></svg>Scanner</button>
+  <button data-view="refill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg><span>Refill<span class="count" id="refillCount" hidden></span></span></button>
+  <button data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Réglages</button>
+</nav>
+
+<!-- Ajout / édition d'une boîte -->
+<dialog id="dlgItem">
+  <form method="dialog" id="itemForm">
+    <h2 id="itemTitle">Ajouter une boîte</h2>
+    <label class="f">Médicament
+      <input id="fName" required autocomplete="off" placeholder="Nom (tapez pour chercher dans la base)">
+    </label>
+    <div class="suggest" id="nameSuggest"></div>
+    <div class="src" id="fSource" hidden></div>
+    <div class="grid2">
+      <label class="f">Date de péremption<input id="fExpiry" type="date"></label>
+      <label class="f">Nombre de boîtes<input id="fQty" type="number" min="1" value="1"></label>
+      <label class="f">Lot<input id="fBatch" autocomplete="off"></label>
+      <label class="f">Emplacement<input id="fLocation" list="locations" autocomplete="off" placeholder="ex. Salle de bain"></label>
+    </div>
+    <datalist id="locations"></datalist>
+    <label class="f">Note<input id="fNote" autocomplete="off" placeholder="ex. posologie, pour qui…"></label>
+    <div class="dlg-actions">
+      <button type="button" class="btn danger" id="btnItemDelete" hidden>Supprimer</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn" value="cancel" id="btnItemCancel">Annuler</button>
+      <button type="submit" class="btn primary" id="btnItemSave">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirmation générique -->
+<dialog id="dlgConfirm">
+  <div class="dlg">
+    <h2 id="cfTitle"></h2>
+    <p id="cfText" style="margin:0"></p>
+    <div class="dlg-actions" id="cfActions"></div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="lib/barcode-ponyfill.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
