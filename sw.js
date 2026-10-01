@@ -1,9 +1,9 @@
 // Service worker : app utilisable hors ligne.
 // - coquille de l'app + lib de scan : cache d'abord (changer VERSION pour publier une mise à jour)
 // - base médicaments (data/*.json) : réseau d'abord, repli sur le cache
-const VERSION = "pharmacie-v1";
+const VERSION = "pharmacie-v2";
 const SHELL = [
-  "./", "index.html", "app.js", "manifest.webmanifest",
+  "./", "index.html", "atc.js", "app.js", "manifest.webmanifest",
   "lib/barcode-ponyfill.min.js", "lib/zxing_reader.wasm",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png",
   "data/meds.json",

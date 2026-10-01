@@ -52,7 +52,7 @@ const db = { meds: null, para: null, byGtin: new Map(), byCnk: new Map(), versio
 
 function indexRows(json, source) {
   const rows = json.rows.map((r) => ({
-    gtin: r[0], cnk: r[1], name: r[2], pack: r[3], atc: r[4], leaflet: r[5], rx: !!r[6], active: !!r[7], source,
+    gtin: r[0], cnk: r[1], name: r[2], pack: r[3], atc: r[4], leaflet: r[5], rx: !!r[6], active: !!r[7], substance: r[8] || "", source,
   }));
   for (const p of rows) {
     if (p.gtin && (!db.byGtin.has(p.gtin) || p.active)) db.byGtin.set(p.gtin, p);
@@ -68,6 +68,7 @@ function loadMeds() {
     db.meds = indexRows(j, "SAM"); db.version = j.v; db.date = j.d;
     const info = `Base SAM v2 n° ${j.v} du ${fmtDate(j.d)} — ${db.meds.length.toLocaleString("fr-BE")} médicaments.`;
     $("#dbInfo").textContent = info; $("#dbInfo2").textContent = info;
+    renderInventory(); // complète les cartes (résumé, notice) — affichage seul, ne modifie pas les données
   }).catch((e) => { medsPromise = null; $("#dbInfo").textContent = "Base médicaments indisponible hors ligne (" + e.message + ")."; });
   return medsPromise;
 }
@@ -92,6 +93,13 @@ function searchDb(q, limit = 25) {
   }
   // actifs d'abord, puis médicaments avant parapharmacie
   return out.sort((a, b) => (b.active - a.active) || (a.source.length - b.source.length)).slice(0, limit);
+}
+
+/** Infos d'affichage d'une boîte : celles enregistrées, complétées par la base (sans modifier l'inventaire). */
+function productInfo(it) {
+  const ref = (it.gtin && db.byGtin.get(it.gtin)) || (it.cnk && db.byCnk.get(it.cnk)) || {};
+  const atc = it.atc || ref.atc || "";
+  return { atc, use: atcSummary(atc), substance: it.substance || ref.substance || "", leaflet: it.leaflet || ref.leaflet || "" };
 }
 
 /* ---------------------------------------------------------------- codes-barres */
@@ -360,7 +368,7 @@ function openItemDialog(id, ctx = {}) {
   const it = id ? data.items[id] : null;
   const p = ctx.product || {};
   const code = ctx.code || {};
-  editing = { id, product: it ? { gtin: it.gtin, cnk: it.cnk, name: it.name, pack: it.pack, atc: it.atc, leaflet: it.leaflet, rx: it.rx } : { ...p, gtin: p.gtin || code.gtin || "", cnk: p.cnk || code.cnk || "" }, code };
+  editing = { id, product: it ? { gtin: it.gtin, cnk: it.cnk, name: it.name, pack: it.pack, atc: it.atc, leaflet: it.leaflet, rx: it.rx, substance: it.substance } : { ...p, gtin: p.gtin || code.gtin || "", cnk: p.cnk || code.cnk || "" }, code };
   $("#itemTitle").textContent = it ? "Modifier" : p.name ? "Ajouter une boîte" : "Produit inconnu — nommez-le";
   $("#fName").value = it ? it.name : [p.name].filter(Boolean).join("");
   $("#fExpiry").value = it ? it.expiry || "" : code.expiry || "";
@@ -388,7 +396,7 @@ function renderSource() {
   if (p.cnk) parts.push("CNK " + p.cnk);
   if (p.gtin) parts.push("GTIN " + p.gtin);
   if (p.pack) parts.push(p.pack);
-  if (p.atc) parts.push("ATC " + p.atc);
+  if (p.atc) parts.push([atcSummary(p.atc), p.substance, "ATC " + p.atc].filter(Boolean).join(" — "));
   if (p.rx) parts.push("sur prescription");
   $("#fSource").hidden = !parts.length;
   $("#fSource").textContent = parts.join(" · ");
@@ -400,14 +408,14 @@ function saveItemFromDialog() {
   const p = editing.product;
   const code = editing.code || {};
   const fields = {
-    name, gtin: p.gtin || "", cnk: p.cnk || "", pack: p.pack || "", atc: p.atc || "", leaflet: p.leaflet || "", rx: !!p.rx,
+    name, gtin: p.gtin || "", cnk: p.cnk || "", pack: p.pack || "", atc: p.atc || "", leaflet: p.leaflet || "", rx: !!p.rx, substance: p.substance || "",
     expiry: $("#fExpiry").value, qty: Math.max(1, +$("#fQty").value || 1), batch: $("#fBatch").value.trim(),
     location: $("#fLocation").value.trim(), note: $("#fNote").value.trim(),
   };
   // Code scanné inconnu de la base : on mémorise l'association code -> produit pour les prochains scans.
   if (!editing.id && (code.gtin || code.cnk) && (!p.source || p.source === "mémorisé" || p.name !== name)) {
     const k = code.gtin || "cnk:" + code.cnk;
-    data.learned[k] = { id: k, product: { gtin: p.gtin, cnk: p.cnk, name, pack: p.pack || "", atc: p.atc || "", leaflet: p.leaflet || "", rx: !!p.rx }, updatedAt: now() };
+    data.learned[k] = { id: k, product: { gtin: p.gtin, cnk: p.cnk, name, pack: p.pack || "", atc: p.atc || "", leaflet: p.leaflet || "", rx: !!p.rx, substance: p.substance || "" }, updatedAt: now() };
   }
   if (editing.id) {
     Object.assign(data.items[editing.id], fields, { updatedAt: now() });
@@ -451,20 +459,24 @@ function renderInventory() {
     $("#invList").innerHTML = `<div class="empty">${all.length ? "Aucun résultat." : "Inventaire vide.<br>Scannez une boîte pour commencer."}</div>`;
     return;
   }
-  $("#invList").innerHTML = list.map(({ it, st }) => `
+  $("#invList").innerHTML = list.map(({ it, st }) => {
+    const info = productInfo(it);
+    return `
     <div class="card item" data-id="${esc(it.id)}">
       <div>
         <div class="name">${esc(it.name)}${(it.qty || 1) > 1 ? ` <span class="badge">×${it.qty}</span>` : ""}</div>
+        ${info.use || info.substance ? `<div class="use">${esc(info.use || "")}${info.use && info.substance ? " · " : ""}${info.substance ? `<span class="sub">${esc(info.substance)}</span>` : ""}</div>` : ""}
         <div class="meta">${[it.expiry && "Pér. " + fmtDate(it.expiry), it.location, it.batch && "lot " + it.batch, it.note].filter(Boolean).map(esc).join(" · ")}</div>
       </div>
       <span class="badge ${st.cls}">${esc(st.label)}</span>
       <div class="actions">
+        ${info.leaflet ? `<a class="btn small leaflet" href="${esc(info.leaflet)}" target="_blank" rel="noopener">📄 Notice</a>` : ""}
         <button class="btn small" data-act="empty">${(it.qty || 1) > 1 ? "−1 boîte vide" : "Vide"}</button>
         <button class="btn small" data-act="refill">+ Refill</button>
         <button class="btn small" data-act="edit">Modifier</button>
-        ${it.leaflet ? `<a class="btn small" href="${esc(it.leaflet)}" target="_blank" rel="noopener">Notice</a>` : ""}
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 function renderRefill() {

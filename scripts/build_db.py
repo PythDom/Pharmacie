@@ -21,7 +21,7 @@ REF = "{urn:be:fgov:ehealth:samws:v2:refdata}"
 NM = "{urn:be:fgov:ehealth:samws:v2:nonmedicinal:common}"
 
 TODAY = date.today().isoformat()
-COLS = ["gtin", "cnk", "name", "pack", "atc", "leaflet", "rx", "active"]
+COLS = ["gtin", "cnk", "name", "pack", "atc", "leaflet", "rx", "active", "substance"]
 
 
 def current(el, tag):
@@ -80,6 +80,7 @@ def parse_amp(zf, name, rows):
                     fr(d, COM + "LeafletLink"),
                     rx,
                     1 if is_cur else 0,
+                    (atc.findtext(REF + "Description") or "").strip() if atc is not None else "",
                 ])
             el.clear()
 
@@ -91,7 +92,7 @@ def parse_nonmed(zf, name, rows):
                 continue
             d, is_cur = current(el, EXP + "Data")
             if d is not None and el.get("code"):
-                rows.append(["", el.get("code"), fr(d, NM + "Name", ns=CORE), "", "", "", 0, 1 if is_cur else 0])
+                rows.append(["", el.get("code"), fr(d, NM + "Name", ns=CORE), "", "", "", 0, 1 if is_cur else 0, ""])
             el.clear()
 
 

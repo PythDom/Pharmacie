@@ -71,6 +71,9 @@ nav.tabs button { flex: 1; max-width: 190px; border: 0; background: none; paddin
 nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
 nav.tabs svg { width: 24px; height: 24px; }
 a.btn { text-decoration: none; display: inline-block; }
+.btn.leaflet { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
+.item .use { font-size: 13px; color: var(--accent); margin: 1px 0 2px; overflow-wrap: anywhere; }
+.item .use .sub { color: var(--muted); }
 .count { background: var(--danger); color: #fff; border-radius: 999px; font-size: 10px; padding: 0 5px; margin-left: 2px; }
 /* scanner */
 .scanner { position: relative; background: #000; border-radius: 14px; overflow: hidden; aspect-ratio: 3 / 4; max-height: 60vh; width: 100%; }
@@ -230,6 +233,7 @@ a { color: var(--accent); }
 <div class="toast" id="toast" hidden></div>
 
 <script src="lib/barcode-ponyfill.min.js"></script>
+<script src="atc.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
