@@ -340,13 +340,34 @@ async function markEmpty(id, serial) {
   toast(choice === "refill" ? "Retiré et ajouté au refill." : "Retiré de l'inventaire.");
 }
 
-function addRefill(p) {
+function addRefill(p, reason = "") {
   const key = productKey(p);
   const existing = live(data.refill).find((r) => r.key === key);
   if (existing) return existing;
-  const r = { id: uid(), key, name: p.name, pack: p.pack || "", gtin: p.gtin || "", cnk: p.cnk || "", createdAt: now(), updatedAt: now() };
+  const r = { id: uid(), key, name: p.name, pack: p.pack || "", gtin: p.gtin || "", cnk: p.cnk || "", reason, createdAt: now(), updatedAt: now() };
   data.refill[r.id] = r;
   return r;
+}
+
+const refillFor = (it) => live(data.refill).find((r) => r.key === productKey(it));
+
+/** « Niveau bas » : la boîte reste dans l'inventaire mais le produit part au refill. */
+function toggleLow(id) {
+  const it = data.items[id];
+  if (!it) return;
+  it.low = !it.low;
+  it.updatedAt = now();
+  if (it.low) {
+    addRefill(it, "low");
+    toast("Niveau bas : ajouté au refill.");
+  } else {
+    // On ne retire du refill que l'entrée créée par « niveau bas », et seulement si aucune autre boîte du produit n'est basse.
+    const r = refillFor(it);
+    const otherLow = live(data.items).some((x) => x.id !== it.id && x.low && productKey(x) === productKey(it));
+    if (r && r.reason === "low" && !otherLow) { r.deleted = true; r.updatedAt = now(); toast("Niveau OK : retiré du refill."); }
+    else toast("Niveau OK.");
+  }
+  commit();
 }
 
 function expiryStatus(expiry) {
@@ -423,6 +444,7 @@ function saveItemFromDialog() {
     const same = live(data.items).find((x) => productKey(x) === productKey(fields) && x.name === fields.name && (x.expiry || "") === fields.expiry && (x.location || "") === fields.location);
     if (same) {
       same.qty = (same.qty || 1) + fields.qty;
+      same.low = false; // réapprovisionné
       if (code.serial) same.serials = [...(same.serials || []), code.serial];
       same.updatedAt = now();
       toast(`${same.name} : ${same.qty} boîtes.`);
@@ -449,12 +471,12 @@ function render() {
 function renderInventory() {
   const q = norm($("#invSearch").value);
   const all = live(data.items).map((it) => ({ it, st: expiryStatus(it.expiry) }));
-  const counts = { all: all.length, soon: all.filter((x) => x.st.cls === "soon").length, expired: all.filter((x) => x.st.cls === "expired").length };
+  const counts = { all: all.length, low: all.filter((x) => x.it.low).length, soon: all.filter((x) => x.st.cls === "soon").length, expired: all.filter((x) => x.st.cls === "expired").length };
   for (const k in counts) $("#n-" + k).textContent = counts[k] ? " " + counts[k] : "";
   const list = all
-    .filter((x) => invFilter === "all" || x.st.cls === invFilter)
+    .filter((x) => invFilter === "all" || (invFilter === "low" ? x.it.low : x.st.cls === invFilter))
     .filter((x) => !q || norm([x.it.name, x.it.location, x.it.note, x.it.cnk].join(" ")).includes(q))
-    .sort((a, b) => invFilter === "all" ? a.it.name.localeCompare(b.it.name, "fr") : a.st.days - b.st.days);
+    .sort((a, b) => invFilter === "all" || invFilter === "low" ? a.it.name.localeCompare(b.it.name, "fr") : a.st.days - b.st.days);
   if (!list.length) {
     $("#invList").innerHTML = `<div class="empty">${all.length ? "Aucun résultat." : "Inventaire vide.<br>Scannez une boîte pour commencer."}</div>`;
     return;
@@ -464,7 +486,7 @@ function renderInventory() {
     return `
     <div class="card item" data-id="${esc(it.id)}">
       <div>
-        <div class="name">${esc(it.name)}${(it.qty || 1) > 1 ? ` <span class="badge">×${it.qty}</span>` : ""}</div>
+        <div class="name">${esc(it.name)}${(it.qty || 1) > 1 ? ` <span class="badge">×${it.qty}</span>` : ""}${it.low ? ` <span class="badge low">Niveau bas${refillFor(it) ? " · au refill" : ""}</span>` : ""}</div>
         ${info.use || info.substance ? `<div class="use">${esc(info.use || "")}${info.use && info.substance ? " · " : ""}${info.substance ? `<span class="sub">${esc(info.substance)}</span>` : ""}</div>` : ""}
         <div class="meta">${[it.expiry && "Pér. " + fmtDate(it.expiry), it.location, it.batch && "lot " + it.batch, it.note].filter(Boolean).map(esc).join(" · ")}</div>
       </div>
@@ -472,7 +494,7 @@ function renderInventory() {
       <div class="actions">
         ${info.leaflet ? `<a class="btn small leaflet" href="${esc(info.leaflet)}" target="_blank" rel="noopener">📄 Notice</a>` : ""}
         <button class="btn small" data-act="empty">${(it.qty || 1) > 1 ? "−1 boîte vide" : "Vide"}</button>
-        <button class="btn small" data-act="refill">+ Refill</button>
+        <button class="btn small${it.low ? " on" : ""}" data-act="low" aria-pressed="${!!it.low}">${it.low ? "Niveau OK" : "Niveau bas"}</button>
         <button class="btn small" data-act="edit">Modifier</button>
       </div>
     </div>`;
@@ -488,7 +510,7 @@ function renderRefill() {
     <div class="card item" data-id="${esc(r.id)}">
       <div>
         <div class="name">${esc(r.name)}</div>
-        <div class="meta">${[r.pack, r.cnk && "CNK " + r.cnk].filter(Boolean).map(esc).join(" · ")}</div>
+        <div class="meta">${[r.reason === "low" && "Niveau bas (encore en stock)", r.pack, r.cnk && "CNK " + r.cnk].filter(Boolean).map(esc).join(" · ")}</div>
       </div>
       <button class="btn small primary" data-act="bought">Acheté ✓</button>
     </div>`).join("");
@@ -665,7 +687,7 @@ function bind() {
     const it = data.items[id];
     if (b.dataset.act === "empty") markEmpty(id);
     if (b.dataset.act === "edit") openItemDialog(id);
-    if (b.dataset.act === "refill") { addRefill(it); commit(); toast("Ajouté au refill : " + it.name); }
+    if (b.dataset.act === "low") toggleLow(id);
   });
 
   $("#scanMode").addEventListener("click", (e) => {

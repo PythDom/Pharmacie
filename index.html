@@ -71,6 +71,8 @@ nav.tabs button { flex: 1; max-width: 190px; border: 0; background: none; paddin
 nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
 nav.tabs svg { width: 24px; height: 24px; }
 a.btn { text-decoration: none; display: inline-block; }
+.badge.low { background: var(--warn-soft); color: var(--warn); }
+.btn.on { background: var(--warn-soft); color: var(--warn); border-color: transparent; font-weight: 600; }
 .btn.leaflet { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
 .item .use { font-size: 13px; color: var(--accent); margin: 1px 0 2px; overflow-wrap: anywhere; }
 .item .use .sub { color: var(--muted); }
@@ -123,6 +125,7 @@ a { color: var(--accent); }
     <input class="search" id="invSearch" type="search" placeholder="Rechercher dans l'inventaire…" autocomplete="off">
     <div class="chips" id="invFilters">
       <button class="chip" data-filter="all" aria-pressed="true">Tout<span class="n" id="n-all"></span></button>
+      <button class="chip" data-filter="low" aria-pressed="false">Niveau bas<span class="n" id="n-low"></span></button>
       <button class="chip" data-filter="soon" aria-pressed="false">Bientôt périmés<span class="n" id="n-soon"></span></button>
       <button class="chip" data-filter="expired" aria-pressed="false">Périmés<span class="n" id="n-expired"></span></button>
     </div>
