@@ -351,6 +351,22 @@ function addRefill(p, reason = "") {
 
 const refillFor = (it) => live(data.refill).find((r) => r.key === productKey(it));
 
+/** Boîtes bientôt périmées / périmées à proposer pour le refill (une par produit, la plus proche). */
+function expirySuggestions() {
+  const items = live(data.items);
+  const byKey = new Map();
+  for (const it of items) {
+    const st = expiryStatus(it.expiry);
+    if (st.cls !== "soon" && st.cls !== "expired") continue;
+    if (it.expiryDismissed === it.expiry || refillFor(it)) continue;
+    const key = productKey(it);
+    // Une autre boîte du même produit encore bonne : pas besoin de racheter.
+    if (items.some((x) => productKey(x) === key && expiryStatus(x.expiry).cls === "ok")) continue;
+    if (!byKey.has(key) || st.days < byKey.get(key).st.days) byKey.set(key, { it, st });
+  }
+  return [...byKey.values()].sort((a, b) => a.st.days - b.st.days);
+}
+
 /** « Niveau bas » : la boîte reste dans l'inventaire mais le produit part au refill. */
 function toggleLow(id) {
   const it = data.items[id];
@@ -505,14 +521,32 @@ function renderRefill() {
   const list = live(data.refill).sort((a, b) => a.name.localeCompare(b.name, "fr"));
   const c = $("#refillCount");
   c.hidden = !list.length; c.textContent = list.length;
+  renderExpirySuggestions();
   if (!list.length) { $("#refillList").innerHTML = `<div class="empty">Rien à racheter.</div>`; return; }
   $("#refillList").innerHTML = list.map((r) => `
     <div class="card item" data-id="${esc(r.id)}">
       <div>
         <div class="name">${esc(r.name)}</div>
-        <div class="meta">${[r.reason === "low" && "Niveau bas (encore en stock)", r.pack, r.cnk && "CNK " + r.cnk].filter(Boolean).map(esc).join(" · ")}</div>
+        <div class="meta">${[r.reason === "low" && "Niveau bas (encore en stock)", r.reason === "expiry" && r.expiry && "Périme le " + fmtDate(r.expiry), r.pack, r.cnk && "CNK " + r.cnk].filter(Boolean).map(esc).join(" · ")}</div>
       </div>
       <button class="btn small primary" data-act="bought">Acheté ✓</button>
+    </div>`).join("");
+}
+
+function renderExpirySuggestions() {
+  const sugg = expirySuggestions();
+  $("#expiryTitle").hidden = !sugg.length;
+  $("#expiryList").innerHTML = sugg.map(({ it, st }) => `
+    <div class="card item" data-id="${esc(it.id)}">
+      <div>
+        <div class="name">${esc(it.name)}</div>
+        <div class="meta">${esc(st.cls === "expired" ? "Périmé depuis le " + fmtDate(it.expiry) : `Périme le ${fmtDate(it.expiry)} (dans ${st.days} j)`)}</div>
+      </div>
+      <span class="badge ${st.cls}">${esc(st.label)}</span>
+      <div class="actions">
+        <button class="btn small primary" data-act="add">Ajouter au refill</button>
+        <button class="btn small" data-act="dismiss">Ignorer</button>
+      </div>
     </div>`).join("");
 }
 
@@ -750,6 +784,20 @@ function bind() {
     r.deleted = true; r.updatedAt = now();
     commit();
     toast("Pensez à scanner la nouvelle boîte pour l'ajouter à l'inventaire.");
+  });
+  $("#expiryList").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-act]"); if (!b) return;
+    const it = data.items[b.closest("[data-id]").dataset.id];
+    if (b.dataset.act === "add") {
+      const r = addRefill(it, "expiry");
+      if (r.reason === "expiry") r.expiry = it.expiry;
+      toast("Ajouté au refill : " + it.name);
+    } else {
+      // Ignoré pour cette date-là : si la date change, la suggestion pourra revenir.
+      it.expiryDismissed = it.expiry;
+      it.updatedAt = now();
+    }
+    commit();
   });
   $("#btnShareRefill").addEventListener("click", async () => {
     const txt = "À racheter :\n" + live(data.refill).map((r) => "• " + r.name + (r.cnk ? ` (CNK ${r.cnk})` : "")).join("\n");
