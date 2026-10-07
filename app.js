@@ -909,7 +909,11 @@ function bind() {
   });
   $("#btnShareRefill").addEventListener("click", async () => {
     const txt = "À racheter :\n" + live(data.refill).map((r) => "• " + r.name + (r.cnk ? ` (CNK ${r.cnk})` : "")).join("\n");
-    try { if (navigator.share) await navigator.share({ text: txt }); else { await navigator.clipboard.writeText(txt); toast("Liste copiée."); } } catch { /* annulé */ }
+    try {
+      if (window.PharmacieAndroid) window.PharmacieAndroid.share(txt); // APK Android
+      else if (navigator.share) await navigator.share({ text: txt });
+      else { await navigator.clipboard.writeText(txt); toast("Liste copiée."); }
+    } catch { /* annulé */ }
   });
 
   // Réglages
@@ -921,9 +925,16 @@ function bind() {
   $("#setSoon").addEventListener("change", (e) => { settings.soonDays = Math.max(1, +e.target.value || 60); lsSet(LS_SETTINGS, settings); render(); });
   $("#setTheme").addEventListener("change", (e) => { settings.theme = e.target.value; lsSet(LS_SETTINGS, settings); applyTheme(); });
   $("#btnExport").addEventListener("click", () => {
+    const name = `pharmacie-${(settings.repo.split("/").pop() || "local").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.json`;
+    const json = JSON.stringify(data, null, 1);
+    if (window.PharmacieAndroid) { // APK Android : la WebView ne gère pas les téléchargements
+      const where = window.PharmacieAndroid.saveFile(name, json);
+      toast(where ? "Exporté : " + where : "Export impossible.");
+      return;
+    }
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
-    a.download = `pharmacie-${(settings.repo.split("/").pop() || "local").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    a.download = name;
     a.click();
   });
   $("#importInput").addEventListener("change", async (e) => {

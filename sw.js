@@ -1,7 +1,7 @@
 // Service worker : app utilisable hors ligne.
 // - coquille de l'app + lib de scan : cache d'abord (changer VERSION pour publier une mise à jour)
 // - base médicaments (data/*.json) : réseau d'abord, repli sur le cache
-const VERSION = "pharmacie-v5";
+const VERSION = "pharmacie-v6";
 const SHELL = [
   "./", "index.html", "atc.js", "app.js", "manifest.webmanifest",
   "lib/barcode-ponyfill.min.js", "lib/zxing_reader.wasm",

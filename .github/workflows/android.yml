@@ -1,0 +1,50 @@
+name: Build Android APK
+
+# Construit l'APK (coquille WebView de la PWA) et le publie dans une Release GitHub.
+# L'app web elle-même est chargée depuis GitHub Pages : inutile de reconstruire l'APK quand seule l'app web change.
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Decode signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pharmacie.p12"
+      - name: Build release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/pharmacie.p12
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: pharmacie
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.${{ github.run_number }}
+        run: gradle -p android assembleRelease --no-daemon
+      - name: Verify signature
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -1)/apksigner verify --print-certs "$APK" | head -3
+          cp "$APK" "Pharmacie-1.${{ github.run_number }}.apk"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "apk-1.${{ github.run_number }}" "Pharmacie-1.${{ github.run_number }}.apk" \
+            --title "Pharmacie Android 1.${{ github.run_number }}" \
+            --notes "APK Android de Pharmacie (stockage séparé de Chrome). Installer par-dessus la version précédente : le jeton et l'inventaire local sont conservés." \
+            --latest
