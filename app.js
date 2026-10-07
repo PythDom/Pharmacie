@@ -30,9 +30,32 @@ function lsSet(key, value) {
 
 // items / refill / learned : dictionnaires id -> enregistrement, chacun avec updatedAt (+ deleted pour les suppressions),
 // ce qui permet de fusionner proprement les modifications de plusieurs appareils.
-let data = lsGet(LS_DATA, null) || { items: {}, refill: {}, learned: {} };
-data.items ||= {}; data.refill ||= {}; data.learned ||= {};
-let settings = Object.assign({ repo: "PythDom/Pharmacie-data", token: "", soonDays: 60, theme: "" }, lsGet(LS_SETTINGS, {}));
+//
+// Profils : un inventaire local par dépôt (clé LS_DATA:<dépôt>, "local" sans dépôt) et un jeton par dépôt.
+// Changer de dépôt change donc d'inventaire : on ne peut jamais fusionner l'inventaire d'une personne dans le dépôt d'une autre.
+const emptyData = () => ({ items: {}, refill: {}, learned: {} });
+const repoKey = (repo) => String(repo || "").trim().toLowerCase();
+const dataKey = (repo) => LS_DATA + ":" + (repoKey(repo) || "local");
+function loadData(repo) {
+  const d = lsGet(dataKey(repo), null) || emptyData();
+  d.items ||= {}; d.refill ||= {}; d.learned ||= {};
+  return d;
+}
+
+let settings = Object.assign({ repo: "", tokens: {}, soonDays: 60, theme: "" }, lsGet(LS_SETTINGS, {}));
+settings.tokens ||= {};
+(function migrateV1() {
+  // v1 : un seul inventaire (LS_DATA) et un seul jeton (settings.token).
+  if (settings.token) { settings.tokens[repoKey(settings.repo)] = settings.token; delete settings.token; lsSet(LS_SETTINGS, settings); }
+  const legacy = lsGet(LS_DATA, null);
+  if (legacy) {
+    const target = settings.tokens[repoKey(settings.repo)] ? settings.repo : "";
+    if (!lsGet(dataKey(target), null)) lsSet(dataKey(target), legacy);
+    try { localStorage.removeItem(LS_DATA); } catch { /* ignoré */ }
+  }
+})();
+let data = loadData(settings.repo);
+const getToken = (repo = settings.repo) => settings.tokens[repoKey(repo)] || "";
 
 let view = "inventory";
 let invFilter = "all";
@@ -41,7 +64,7 @@ let scanMode = "add";
 const live = (dict) => Object.values(dict).filter((r) => !r.deleted);
 
 function commit() {
-  lsSet(LS_DATA, data);
+  lsSet(dataKey(settings.repo), data);
   scheduleSync();
   render();
 }
@@ -597,7 +620,7 @@ function confirmDialog(title, text, buttons) {
 
 let syncTimer = null, lastSyncAt = 0, syncing = false, dirty = false;
 
-function syncEnabled() { return location.hostname === SYNC_HOST && settings.token && settings.repo; }
+function syncEnabled() { return location.hostname === SYNC_HOST && !!settings.repo && !!getToken(); }
 
 function setSyncState(state, label) {
   const el = $("#syncState");
@@ -630,10 +653,10 @@ function b64encodeUtf8(str) {
   return btoa(bin);
 }
 
-async function gh(method, body) {
-  const r = await fetch(`https://api.github.com/repos/${settings.repo}/contents/${SYNC_PATH}`, {
+async function gh(target, method, body) {
+  const r = await fetch(`https://api.github.com/repos/${target.repo}/contents/${SYNC_PATH}`, {
     method,
-    headers: { Authorization: "Bearer " + settings.token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(body ? { "Content-Type": "application/json" } : {}) },
+    headers: { Authorization: "Bearer " + target.token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(body ? { "Content-Type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
@@ -650,39 +673,51 @@ async function sync(manual = false) {
   if (Date.now() - lastSyncAt < MIN_SYNC_INTERVAL_MS) { scheduleSync(0); return; }
   syncing = true; lastSyncAt = Date.now();
   setSyncState("pending", "synchro…");
+  // Le profil est figé au début : si l'utilisateur change de profil pendant la synchro, le résultat ne touche pas le nouveau.
+  const target = { repo: settings.repo, token: getToken(), key: repoKey(settings.repo) };
+  const stillActive = () => repoKey(settings.repo) === target.key;
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
-      const get = await gh("GET");
+      const local = JSON.parse(JSON.stringify(data)); // instantané : les modifications se font en place pendant la synchro
+      const get = await gh(target, "GET");
       let remote = { items: {}, refill: {}, learned: {} }, sha;
       if (get.ok) { const j = await get.json(); sha = j.sha; remote = JSON.parse(b64decodeUtf8(j.content)); }
       else if (get.status !== 404) throw new Error("GitHub " + get.status);
       const merged = {
-        items: mergeDict(remote.items, data.items),
-        refill: mergeDict(remote.refill, data.refill),
-        learned: mergeDict(remote.learned, data.learned),
+        items: mergeDict(remote.items, local.items),
+        refill: mergeDict(remote.refill, local.refill),
+        learned: mergeDict(remote.learned, local.learned),
       };
-      const changedLocally = JSON.stringify(merged) !== JSON.stringify({ items: data.items, refill: data.refill, learned: data.learned });
+      const changedLocally = JSON.stringify(merged) !== JSON.stringify({ items: local.items, refill: local.refill, learned: local.learned });
       const needPush = JSON.stringify(merged) !== JSON.stringify({ items: remote.items || {}, refill: remote.refill || {}, learned: remote.learned || {} });
       if (needPush) {
-        const put = await gh("PUT", { message: "Mise à jour depuis " + deviceName(), content: b64encodeUtf8(JSON.stringify(merged, null, 1)), ...(sha ? { sha } : {}) });
+        const put = await gh(target, "PUT", { message: "Mise à jour depuis " + deviceName(), content: b64encodeUtf8(JSON.stringify(merged, null, 1)), ...(sha ? { sha } : {}) });
         if (put.status === 409 || put.status === 422) continue; // modifié entre-temps : on recommence
         if (!put.ok) throw new Error("GitHub " + put.status);
       }
-      data = merged;
-      lsSet(LS_DATA, data);
-      dirty = false;
+      if (!stillActive()) { lsSet(dataKey(target.repo), merged); return; }
+      // Conserve les modifications faites pendant la synchro : elles partiront à la suivante.
+      const after = { items: mergeDict(merged.items, data.items), refill: mergeDict(merged.refill, data.refill), learned: mergeDict(merged.learned, data.learned) };
+      const editedDuringSync = JSON.stringify(after) !== JSON.stringify(merged);
+      data = after;
+      lsSet(dataKey(target.repo), data);
+      dirty = editedDuringSync;
       setSyncState("ok", "synchronisé");
       $("#syncInfo").textContent = "Dernière synchro : " + new Date().toLocaleString("fr-BE");
       if (changedLocally) render(); // render() est pur : il ne modifie jamais data et ne relance pas de synchro
+      if (editedDuringSync) setTimeout(() => scheduleSync(), 0); // après la remise à zéro de "syncing"
       return;
     }
     throw new Error("conflits répétés");
   } catch (e) {
+    if (!stillActive()) return;
     setSyncState("error", "erreur sync");
     $("#syncInfo").textContent = "Erreur : " + e.message;
     if (manual) toast("Synchro impossible : " + e.message);
   } finally {
     syncing = false;
+    // Profil changé pendant la synchro : celle du nouveau profil a été ignorée, on la lance maintenant.
+    if (!stillActive() && syncEnabled()) setTimeout(() => { lastSyncAt = 0; sync(); }, 0);
   }
 }
 
@@ -695,9 +730,82 @@ function applyTheme() {
   else delete document.documentElement.dataset.theme;
 }
 
+function knownProfiles() {
+  const repos = new Set(Object.keys(settings.tokens).filter(Boolean));
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith(LS_DATA + ":") && k !== dataKey("")) repos.add(k.slice(LS_DATA.length + 1));
+    }
+  } catch { /* stockage indisponible */ }
+  if (settings.repo) repos.add(repoKey(settings.repo));
+  return [...repos].sort();
+}
+
+function renderProfileName() {
+  const multi = knownProfiles().length > 1 || (settings.repo && live(loadData("").items).length > 0);
+  $("#profileName").hidden = !multi;
+  const short = (r) => r.split("/").pop();
+  const ambiguous = knownProfiles().filter((r) => short(r) === short(repoKey(settings.repo))).length > 1;
+  $("#profileName").textContent = !settings.repo ? "local" : ambiguous ? settings.repo : short(settings.repo);
+  $("#profileName").title = "Profil actif : " + (settings.repo || "local, sans synchronisation");
+}
+
+/** Active un autre dépôt (= autre inventaire). Sans dépôt auparavant, propose d'importer l'inventaire local. */
+async function switchProfile(repo, token) {
+  repo = repo.trim().replace(/^https:\/\/github\.com\//, "").replace(/\/+$/, "");
+  if (repo && !/^[\w.-]+\/[\w.-]+$/.test(repo)) { toast("Dépôt invalide : format propriétaire/nom."); return; }
+  const same = repoKey(repo) === repoKey(settings.repo);
+  if (repo) settings.tokens[repoKey(repo)] = token;
+  if (same) {
+    settings.repo = repo;
+    lsSet(LS_SETTINGS, settings);
+    toast("Réglages enregistrés.");
+    lastSyncAt = 0; sync(true);
+    return;
+  }
+  let next = loadData(repo);
+  const localCount = !settings.repo ? live(data.items).length + live(data.refill).length : 0;
+  if (repo && localCount) {
+    const c = await confirmDialog("Inventaire local", `Cet appareil contient ${localCount} élément(s) qui ne sont liés à aucun dépôt. Les importer dans « ${repo} » ?`,
+      [["cancel", "Annuler"], ["keep", "Non, les garder à part"], ["import", "Importer", "primary"]]);
+    if (c === "cancel" || !c) return;
+    if (c === "import") {
+      next = { items: mergeDict(next.items, data.items), refill: mergeDict(next.refill, data.refill), learned: mergeDict(next.learned, data.learned) };
+      try { localStorage.removeItem(dataKey("")); } catch { /* ignoré */ }
+    }
+  }
+  clearTimeout(syncTimer); dirty = false; lastSyncAt = 0;
+  settings.repo = repo;
+  lsSet(LS_SETTINGS, settings);
+  data = next;
+  lsSet(dataKey(repo), data);
+  render(); renderSettings(); renderProfileName();
+  toast(repo ? "Profil actif : " + repo : "Profil local (sans synchronisation).");
+  if (syncEnabled()) sync(true); else setSyncState("off", "local");
+}
+
+/** Supprime de cet appareil le jeton et l'inventaire local du profil actif (les données restent sur GitHub). */
+async function forgetProfile() {
+  const name = settings.repo || "local";
+  const c = await confirmDialog("Oublier ce profil ?", `Le jeton et l'inventaire de « ${name} » seront effacés de cet appareil. Les données synchronisées restent dans le dépôt GitHub.`,
+    [["no", "Annuler"], ["yes", "Oublier", "danger"]]);
+  if (c !== "yes") return;
+  clearTimeout(syncTimer); dirty = false;
+  delete settings.tokens[repoKey(settings.repo)];
+  try { localStorage.removeItem(dataKey(settings.repo)); } catch { /* ignoré */ }
+  settings.repo = "";
+  lsSet(LS_SETTINGS, settings);
+  data = loadData("");
+  render(); renderSettings(); renderProfileName();
+  setSyncState("off", "local");
+  toast("Profil oublié sur cet appareil.");
+}
+
 function renderSettings() {
   $("#setRepo").value = settings.repo;
-  $("#setToken").value = settings.token;
+  $("#setToken").value = getToken();
+  $("#profiles").innerHTML = knownProfiles().map((r) => `<option value="${esc(r)}">`).join("");
   $("#setSoon").value = settings.soonDays;
   $("#setTheme").value = settings.theme;
   if (location.hostname !== SYNC_HOST) $("#syncInfo").textContent = "Synchronisation inactive ici (uniquement sur " + SYNC_HOST + ").";
@@ -805,17 +913,17 @@ function bind() {
   });
 
   // Réglages
-  $("#btnSaveSync").addEventListener("click", () => {
-    settings.repo = $("#setRepo").value.trim(); settings.token = $("#setToken").value.trim();
-    lsSet(LS_SETTINGS, settings); toast("Réglages enregistrés."); sync(true);
-  });
+  $("#btnSaveSync").addEventListener("click", () => switchProfile($("#setRepo").value, $("#setToken").value.trim()));
+  // Choisir un profil connu remplit son jeton.
+  $("#setRepo").addEventListener("change", () => { $("#setToken").value = getToken($("#setRepo").value); });
+  $("#btnForget").addEventListener("click", forgetProfile);
   $("#btnSyncNow").addEventListener("click", () => { lastSyncAt = 0; sync(true); });
   $("#setSoon").addEventListener("change", (e) => { settings.soonDays = Math.max(1, +e.target.value || 60); lsSet(LS_SETTINGS, settings); render(); });
   $("#setTheme").addEventListener("change", (e) => { settings.theme = e.target.value; lsSet(LS_SETTINGS, settings); applyTheme(); });
   $("#btnExport").addEventListener("click", () => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
-    a.download = `pharmacie-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `pharmacie-${(settings.repo.split("/").pop() || "local").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
   });
   $("#importInput").addEventListener("change", async (e) => {
@@ -839,6 +947,7 @@ function bind() {
 
 applyTheme();
 bind();
+renderProfileName();
 render();
 setView("inventory");
 loadMeds();

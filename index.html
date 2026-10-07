@@ -38,6 +38,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 header.top { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 12px 16px 8px; padding-top: calc(12px + env(safe-area-inset-top)); }
 .top-row { display: flex; align-items: center; gap: 10px; max-width: 760px; margin: 0 auto; }
 .top-row h1 { font-size: 20px; margin: 0; flex: 1; }
+.profile { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile[hidden] { display: none; }
 .sync-dot { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .sync-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .sync-dot[data-state="ok"]::before { background: var(--ok); }
@@ -115,6 +117,7 @@ a { color: var(--accent); }
 <header class="top">
   <div class="top-row">
     <h1 id="title">Pharmacie</h1>
+    <span class="profile" id="profileName" hidden></span>
     <span class="sync-dot" id="syncState" data-state="off">local</span>
   </div>
 </header>
@@ -171,12 +174,13 @@ a { color: var(--accent); }
 
   <!-- Réglages -->
   <section class="view" id="view-settings" hidden>
-    <h3 class="section">Synchronisation (repo GitHub privé)</h3>
+    <h3 class="section">Profil et synchronisation (repo GitHub privé)</h3>
     <div class="card dlg" style="padding:12px">
-      <label class="f">Dépôt (propriétaire/nom)<input id="setRepo" placeholder="PythDom/Pharmacie-data"></label>
+      <label class="f">Dépôt (propriétaire/nom) — un dépôt = un inventaire<input id="setRepo" list="profiles" autocomplete="off" placeholder="ex. PythDom/Pharmacie-data"></label>
+      <datalist id="profiles"></datalist>
       <label class="f">Jeton GitHub (fine-grained, Contents: Read &amp; Write sur ce dépôt uniquement)<input id="setToken" type="password" autocomplete="off" placeholder="github_pat_…"></label>
-      <p class="note">Le jeton reste uniquement dans ce navigateur. La synchronisation ne fonctionne que sur pythdom.github.io.</p>
-      <div class="row"><button class="btn primary" id="btnSaveSync">Enregistrer</button><button class="btn" id="btnSyncNow">Synchroniser maintenant</button></div>
+      <p class="note">Changer de dépôt change d'inventaire : chaque profil garde le sien sur l'appareil. Le jeton reste uniquement sur cet appareil. La synchronisation ne fonctionne que sur pythdom.github.io.</p>
+      <div class="row"><button class="btn primary" id="btnSaveSync">Enregistrer / activer</button><button class="btn" id="btnSyncNow">Synchroniser maintenant</button><button class="btn danger" id="btnForget">Oublier ce profil</button></div>
       <p class="note" id="syncInfo"></p>
     </div>
     <h3 class="section">Alertes</h3>
