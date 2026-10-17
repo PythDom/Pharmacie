@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mode d'emploi</title>
+<meta name="description" content="Mode d'emploi de l'app Pharmacie : installation, synchronisation, scan des boîtes, péremptions et refill.">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root {
+  --bg: #f4f6f5; --surface: #ffffff; --surface-2: #eef2f1; --text: #17201e; --muted: #5f6b68;
+  --border: #d9e0de; --accent: #0f766e; --accent-ink: #ffffff; --accent-soft: #d5efeb;
+  --warn: #9a5b00; --warn-soft: #fdf0d5; --danger: #b42318; --danger-soft: #fde7e5; --ok: #1d7a3e; --ok-soft: #dcf2e3;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1413; --surface: #172020; --surface-2: #1f2a29; --text: #e6ecea; --muted: #97a4a1;
+    --border: #2b3836; --accent: #2bb3a3; --accent-ink: #04211e; --accent-soft: #123a36;
+    --warn: #f2b453; --warn-soft: #36270d; --danger: #ff7a6e; --danger-soft: #3a1714; --ok: #5fd08a; --ok-soft: #12311e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1413; --surface: #172020; --surface-2: #1f2a29; --text: #e6ecea; --muted: #97a4a1;
+  --border: #2b3836; --accent: #2bb3a3; --accent-ink: #04211e; --accent-soft: #123a36;
+  --warn: #f2b453; --warn-soft: #36270d; --danger: #ff7a6e; --danger-soft: #3a1714; --ok: #5fd08a; --ok-soft: #12311e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { position: sticky; top: 0; z-index: 2; background: var(--accent); color: var(--accent-ink); padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top)); }
+header .in { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+header h1 { font-size: 18px; margin: 0; flex: 1; }
+header a { color: inherit; font-weight: 600; text-decoration: none; background: rgba(255,255,255,.15); padding: 5px 12px; border-radius: 999px; font-size: 14px; white-space: nowrap; }
+main { max-width: 760px; margin: 0 auto; padding: 8px 16px 64px; }
+.lead { font-size: 17px; color: var(--muted); }
+nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin: 16px 0 8px; }
+nav.toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 24px; }
+@media (max-width: 560px) { nav.toc ol { columns: 1; } }
+nav.toc a { color: var(--text); text-decoration: none; }
+nav.toc a:hover { color: var(--accent); }
+h2 { font-size: 21px; margin: 36px 0 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+h2 .n { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 14px; margin-right: 8px; vertical-align: 2px; }
+h3 { font-size: 17px; margin: 22px 0 6px; }
+a { color: var(--accent); overflow-wrap: anywhere; }
+ol.steps { padding-left: 22px; }
+ol.steps li, ul li { margin: 4px 0; }
+.box { border-radius: 12px; padding: 12px 14px; margin: 14px 0; background: var(--surface); border: 1px solid var(--border); }
+.tip { background: var(--accent-soft); border-color: transparent; }
+.warn { background: var(--warn-soft); border-color: transparent; }
+.box > :first-child { margin-top: 0; } .box > :last-child { margin-bottom: 0; }
+.box strong:first-child { display: block; margin-bottom: 2px; }
+.ui { display: inline-block; background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 0 7px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.b-exp { background: var(--danger-soft); color: var(--danger); } .b-soon, .b-low { background: var(--warn-soft); color: var(--warn); } .b-ok { background: var(--ok-soft); color: var(--ok); }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 15px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 13px; }
+.tablewrap { overflow-x: auto; }
+code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 14px; overflow-wrap: anywhere; }
+details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 8px 0; }
+details summary { cursor: pointer; font-weight: 600; }
+details[open] summary { margin-bottom: 6px; }
+footer { color: var(--muted); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="in">
+    <h1>📖 Mode d'emploi</h1>
+    <a href="./">Ouvrir l'app</a>
+  </div>
+</header>
+
+<main>
+  <p class="lead">Pharmacie tient l'inventaire de votre pharmacie familiale : on scanne chaque boîte, l'app retrouve le médicament dans la base officielle belge et lit la date de péremption. Elle vous prévient quand une boîte est bientôt périmée et tient la liste de ce qu'il faut racheter.</p>
+
+  <nav class="toc" aria-label="Sommaire">
+    <ol>
+      <li><a href="#installer">Installer l'app</a></li>
+      <li><a href="#synchro">Synchroniser (facultatif)</a></li>
+      <li><a href="#ajouter">Ajouter une boîte</a></li>
+      <li><a href="#inventaire">Lire l'inventaire</a></li>
+      <li><a href="#vide">Boîte vide, niveau bas</a></li>
+      <li><a href="#refill">La liste de refill</a></li>
+      <li><a href="#profils">Plusieurs personnes</a></li>
+      <li><a href="#vie-privee">Données et vie privée</a></li>
+      <li><a href="#faq">Problèmes fréquents</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1 -->
+  <h2 id="installer"><span class="n">1</span>Installer l'app</h2>
+
+  <h3>Android : l'application (recommandé)</h3>
+  <ol class="steps">
+    <li>Sur le téléphone, ouvrez <a href="https://github.com/PythDom/Pharmacie/releases/latest">la page de la dernière version</a> et touchez le fichier <code>Pharmacie-….apk</code>.</li>
+    <li>Ouvrez le fichier téléchargé. Android demande d'autoriser votre navigateur à installer des applications : acceptez.</li>
+    <li>Si Play Protect affiche « Application inconnue », choisissez <span class="ui">Installer quand même</span>.</li>
+  </ol>
+  <div class="box tip">
+    <strong>Pourquoi l'application plutôt que le site ?</strong>
+    Elle garde ses données à part du navigateur : vous pouvez effacer l'historique et les données de Chrome sans perdre votre inventaire ni votre jeton de synchronisation.
+  </div>
+
+  <h3>Android ou PC : depuis le navigateur</h3>
+  <p>Ouvrez <a href="https://pythdom.github.io/Pharmacie/">pythdom.github.io/Pharmacie</a> dans Chrome ou Edge, puis menu <span class="ui">⋮</span> → <span class="ui">Installer l'application</span>. L'app fonctionne aussi hors ligne.</p>
+
+  <h3>iPhone / iPad</h3>
+  <p>Ouvrez le lien dans <strong>Safari</strong>, touchez <span class="ui">Partager</span> → <span class="ui">Sur l'écran d'accueil</span>.</p>
+
+  <div class="box warn">
+    <strong>Attention si vous utilisez le navigateur</strong>
+    L'inventaire et le jeton sont enregistrés dans le navigateur. Effacer ses données (cookies, données de sites) les supprime de l'appareil. L'inventaire revient si la synchronisation est configurée, mais il faut recoller le jeton. Sur Android, préférez l'application.
+  </div>
+
+  <!-- 2 -->
+  <h2 id="synchro"><span class="n">2</span>Synchroniser (facultatif)</h2>
+  <p>Sans rien configurer, l'app fonctionne <strong>uniquement sur l'appareil</strong>. La synchronisation enregistre l'inventaire dans un <strong>dépôt GitHub privé</strong> : il est alors partagé entre vos appareils (téléphone, PC…) et sauvegardé.</p>
+
+  <h3>Cas 1 : quelqu'un vous a préparé l'accès</h3>
+  <p>Vous avez reçu un <strong>nom de dépôt</strong> (ex. <code>PythDom/Pharmacie-data</code>) et un <strong>jeton</strong> (une longue clé qui commence par <code>github_pat_</code>) :</p>
+  <ol class="steps">
+    <li>Dans l'app, ouvrez <span class="ui">Réglages</span>.</li>
+    <li>Collez le dépôt et le jeton, puis touchez <span class="ui">Enregistrer / activer</span>.</li>
+    <li>En haut à droite, l'indicateur passe à <span class="badge b-ok">synchronisé</span>.</li>
+  </ol>
+  <p>Faites la même chose sur chacun de vos appareils.</p>
+
+  <h3>Cas 2 : créer votre propre espace</h3>
+  <ol class="steps">
+    <li>Créez un compte gratuit sur <a href="https://github.com/signup">github.com</a>.</li>
+    <li>Créez un dépôt : <a href="https://github.com/new">github.com/new</a> → nom, par ex. <code>Pharmacie-data</code> → cochez <strong>Private</strong> et <strong>Add a README file</strong> → <span class="ui">Create repository</span>.</li>
+    <li>Créez un jeton : <a href="https://github.com/settings/personal-access-tokens/new">github.com/settings/personal-access-tokens/new</a>
+      <ul>
+        <li><strong>Token name</strong> : par ex. « Pharmacie téléphone ».</li>
+        <li><strong>Expiration</strong> : la plus longue proposée (ou « No expiration »). Il faudra en créer un nouveau à l'échéance.</li>
+        <li><strong>Repository access</strong> : <em>Only select repositories</em> → votre dépôt <code>Pharmacie-data</code> uniquement.</li>
+        <li><strong>Permissions</strong> → <em>Repository permissions</em> → <strong>Contents</strong> : <em>Read and write</em>. Rien d'autre.</li>
+        <li><span class="ui">Generate token</span>, puis <strong>copiez-le tout de suite</strong> : GitHub ne l'affiche qu'une fois.</li>
+      </ul>
+    </li>
+    <li>Dans l'app : <span class="ui">Réglages</span> → dépôt <code>votre-nom/Pharmacie-data</code> + le jeton → <span class="ui">Enregistrer / activer</span>.</li>
+  </ol>
+  <div class="box tip">
+    <strong>Astuce</strong>
+    Gardez le jeton dans votre gestionnaire de mots de passe : vous le recollerez facilement sur un nouvel appareil.
+  </div>
+  <p>Si vous aviez déjà ajouté des boîtes avant de configurer la synchronisation, l'app propose de les <strong>importer</strong> dans le dépôt.</p>
+
+  <!-- 3 -->
+  <h2 id="ajouter"><span class="n">3</span>Ajouter une boîte</h2>
+  <ol class="steps">
+    <li>Touchez <span class="ui">Scanner</span> en bas, mode <span class="ui">➕ Ajouter une boîte</span>. Autorisez l'accès à la caméra la première fois.</li>
+    <li>Visez le <strong>petit code carré</strong> (DataMatrix) de la boîte. S'il n'y en a pas, visez le code-barres classique.</li>
+    <li>Vérifiez la fiche qui s'ouvre, complétez si besoin (emplacement, note, nombre de boîtes), puis <span class="ui">Enregistrer</span>.</li>
+  </ol>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Ce qui est sur la boîte</th><th>Ce que l'app remplit</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Code carré DataMatrix</strong><br><small>médicaments sur prescription</small></td><td>Nom, conditionnement, <strong>date de péremption</strong>, lot. Rien à taper.</td></tr>
+      <tr><td><strong>Code-barres classique</strong><br><small>beaucoup de produits sans ordonnance</small></td><td>Le nom si le produit est connu. <strong>La date est à saisir à la main</strong> (elle est imprimée sur la boîte).</td></tr>
+      <tr><td><strong>Produit inconnu</strong></td><td>Tapez le nom : l'app propose les produits de la base pendant que vous écrivez. Elle <strong>retient ce code</strong> pour les fois suivantes.</td></tr>
+    </tbody>
+  </table></div>
+
+  <p>Autres façons d'ajouter, sur l'écran Scanner :</p>
+  <ul>
+    <li><span class="ui">📷 Depuis une photo</span> : une photo du code, si la caméra en direct ne fonctionne pas.</li>
+    <li>Taper le code <strong>CNK</strong> (7 chiffres, imprimé sur les boîtes belges) ou le code-barres, puis <span class="ui">OK</span>.</li>
+    <li><span class="ui">Saisie manuelle</span> : chercher le médicament par son nom.</li>
+  </ul>
+  <div class="box tip">
+    <strong>Deux boîtes identiques ?</strong>
+    Si la date et l'emplacement sont les mêmes, elles sont regroupées (<span class="badge" style="background:var(--surface-2)">×2</span>). Une même boîte (code carré) scannée deux fois est détectée et refusée.
+  </div>
+
+  <!-- 4 -->
+  <h2 id="inventaire"><span class="n">4</span>Lire l'inventaire</h2>
+  <p>Chaque carte affiche le nom, <strong>à quoi sert le médicament</strong> (en vert, avec la substance active), la date de péremption, l'emplacement et vos notes.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Badge</th><th>Signification</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge b-ok">juin 2027</span></td><td>En ordre : mois de péremption.</td></tr>
+      <tr><td><span class="badge b-soon">24 j</span></td><td>Périme bientôt : jours restants (moins de 60 jours, réglable dans <span class="ui">Réglages</span>).</td></tr>
+      <tr><td><span class="badge b-exp">Périmé</span></td><td>Date dépassée : à rapporter en pharmacie.</td></tr>
+      <tr><td><span class="badge b-low">Niveau bas</span></td><td>Presque vide (voir section 5).</td></tr>
+    </tbody>
+  </table></div>
+  <p>Les filtres en haut (<span class="ui">Niveau bas</span>, <span class="ui">Bientôt périmés</span>, <span class="ui">Périmés</span>) et la barre de recherche aident à s'y retrouver. Boutons de chaque carte :</p>
+  <ul>
+    <li><span class="ui">📄 Notice</span> : la notice officielle pour le patient (PDF).</li>
+    <li><span class="ui">Modifier</span> : corriger la date, l'emplacement, le nombre, ou supprimer.</li>
+  </ul>
+  <div class="box warn">
+    <strong>Important</strong>
+    « À quoi ça sert » indique la classe du médicament, à titre indicatif. Elle ne remplace ni la notice, ni l'avis de votre médecin ou pharmacien.
+  </div>
+
+  <!-- 5 -->
+  <h2 id="vide"><span class="n">5</span>Boîte vide, niveau bas</h2>
+  <ul>
+    <li><strong>Boîte terminée</strong> : touchez <span class="ui">Vide</span> sur la carte, ou scannez la boîte en mode <span class="ui">🗑️ Boîte vide</span>. S'il en reste plusieurs, une seule est retirée. À la dernière, l'app propose <span class="ui">Retirer + refill</span> pour la racheter.</li>
+    <li><strong>Presque vide</strong> : touchez <span class="ui">Niveau bas</span>. La boîte reste dans l'inventaire et le médicament s'ajoute au refill. <span class="ui">Niveau OK</span> annule.</li>
+  </ul>
+
+  <!-- 6 -->
+  <h2 id="refill"><span class="n">6</span>La liste de refill</h2>
+  <p>L'onglet <span class="ui">Refill</span> contient ce qu'il faut racheter. Le nombre s'affiche sur l'onglet.</p>
+  <ul>
+    <li><strong>Ajouter à la main</strong> : tapez un nom en haut (la base fait des propositions), puis <span class="ui">Ajouter</span>.</li>
+    <li><strong>À prévoir : bientôt périmés</strong> : l'app propose les médicaments qui vont périmer, sauf si vous en avez une autre boîte encore bonne. <span class="ui">Ajouter au refill</span> ou <span class="ui">Ignorer</span>.</li>
+    <li><span class="ui">Partager / copier la liste</span> : l'envoyer par message, ou la montrer en pharmacie. Les codes CNK sont inclus.</li>
+    <li><span class="ui">Acheté ✓</span> retire un produit de la liste. Plus simple encore : <strong>scannez la nouvelle boîte</strong>, elle sort du refill toute seule.</li>
+  </ul>
+
+  <!-- 7 -->
+  <h2 id="profils"><span class="n">7</span>Plusieurs personnes</h2>
+  <p><strong>Un dépôt = un inventaire.</strong></p>
+  <ul>
+    <li><strong>Une pharmacie commune</strong> (la famille) : tout le monde utilise <strong>le même dépôt</strong>. Les ajouts de chacun sont fusionnés automatiquement.</li>
+    <li><strong>Des pharmacies séparées</strong> : chacun son dépôt et son jeton.</li>
+    <li><strong>Plusieurs inventaires sur un même appareil</strong> : dans <span class="ui">Réglages</span>, choisissez un autre dépôt dans la liste, puis <span class="ui">Enregistrer / activer</span>. Chaque profil garde son propre inventaire, sans mélange. Le profil actif s'affiche en haut de l'écran.</li>
+  </ul>
+
+  <!-- 8 -->
+  <h2 id="vie-privee"><span class="n">8</span>Données et vie privée</h2>
+  <ul>
+    <li>Votre inventaire est enregistré <strong>sur l'appareil</strong> et, si vous l'avez configuré, dans <strong>votre dépôt GitHub privé</strong>. Il n'est envoyé nulle part ailleurs.</li>
+    <li>Le jeton reste sur l'appareil. Il ne donne accès <strong>qu'au dépôt choisi</strong>. Vous pouvez le révoquer à tout moment sur <a href="https://github.com/settings/personal-access-tokens">github.com/settings/personal-access-tokens</a>.</li>
+    <li>Toute personne qui possède le jeton d'un dépôt peut lire et modifier cet inventaire. Ne le partagez qu'avec les personnes concernées.</li>
+    <li>Les médicaments viennent de la base publique <strong>SAM</strong> (AFMPS / eHealth), mise à jour chaque semaine. Pour les produits absents, l'app interroge Open Food Facts et ses projets voisins avec le seul code-barres.</li>
+    <li><span class="ui">Oublier ce profil</span> efface le jeton et l'inventaire de l'appareil. Les données synchronisées restent dans le dépôt.</li>
+    <li><span class="ui">Exporter (JSON)</span> crée une copie de sauvegarde. <span class="ui">Importer…</span> la fusionne avec l'inventaire actuel.</li>
+  </ul>
+
+  <!-- 9 -->
+  <h2 id="faq"><span class="n">9</span>Problèmes fréquents</h2>
+  <details>
+    <summary>La caméra ne s'ouvre pas</summary>
+    <p>Autorisez la caméra : dans l'app Android, via Paramètres Android → Applis → Pharmacie → Autorisations. Dans le navigateur, via l'icône à gauche de l'adresse. Sinon, utilisez <span class="ui">📷 Depuis une photo</span> ou tapez le code.</p>
+  </details>
+  <details>
+    <summary>Le code n'est pas lu</summary>
+    <p>Éclairez bien la boîte, tenez-la à 10–15 cm et visez le code carré plutôt que le code-barres. Une boîte cabossée ou brillante se lit mieux en photo.</p>
+  </details>
+  <details>
+    <summary>Le produit est « inconnu »</summary>
+    <p>C'est fréquent pour les produits sans ordonnance et la parapharmacie : la base officielle ne connaît pas leur code-barres. Tapez le nom et choisissez dans les propositions. L'app retiendra ce code pour la prochaine fois.</p>
+  </details>
+  <details>
+    <summary>Pas de date de péremption après le scan</summary>
+    <p>Seul le code carré DataMatrix contient la date. Pour les autres boîtes, recopiez la date imprimée (souvent « EXP » ou « Pér. »). Si seul le mois est indiqué, mettez le dernier jour du mois.</p>
+  </details>
+  <details>
+    <summary>L'indicateur affiche « erreur sync »</summary>
+    <p>Le plus souvent, le jeton a <strong>expiré</strong> ou a été révoqué. Créez-en un nouveau (section 2, cas 2, étape 3) et collez-le dans <span class="ui">Réglages</span>. Vérifiez aussi le nom du dépôt (<code>propriétaire/nom</code>). Rien n'est perdu : les changements restent sur l'appareil et partiront à la prochaine synchronisation.</p>
+  </details>
+  <details>
+    <summary>Une boîte ajoutée sur le téléphone n'apparaît pas sur le PC</summary>
+    <p>La synchronisation part quelques secondes après chaque changement. Sur l'autre appareil, les nouveautés arrivent quand on revient sur l'app. Vérifiez que les deux appareils utilisent <strong>le même dépôt</strong>, et touchez <span class="ui">Synchroniser maintenant</span> dans Réglages.</p>
+  </details>
+  <details>
+    <summary>Comment obtenir la nouvelle version de l'app ?</summary>
+    <p>Rien à faire : elle se met à jour toute seule à l'ouverture suivante. Si l'ancienne version reste affichée, fermez complètement l'app puis rouvrez-la.</p>
+  </details>
+
+  <footer>
+    Pharmacie — code source : <a href="https://github.com/PythDom/Pharmacie">github.com/PythDom/Pharmacie</a>. Données médicaments : SAM v2 (AFMPS / eHealth), données ouvertes.
+  </footer>
+</main>
+<script>
+  // Même thème que l'app (choix enregistré dans Réglages).
+  try { const t = JSON.parse(localStorage.getItem("pharma.settings.v1") || "{}").theme; if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+</body>
+</html>

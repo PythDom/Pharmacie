@@ -517,7 +517,7 @@ function renderInventory() {
     .filter((x) => !q || norm([x.it.name, x.it.location, x.it.note, x.it.cnk].join(" ")).includes(q))
     .sort((a, b) => invFilter === "all" || invFilter === "low" ? a.it.name.localeCompare(b.it.name, "fr") : a.st.days - b.st.days);
   if (!list.length) {
-    $("#invList").innerHTML = `<div class="empty">${all.length ? "Aucun résultat." : "Inventaire vide.<br>Scannez une boîte pour commencer."}</div>`;
+    $("#invList").innerHTML = `<div class="empty">${all.length ? "Aucun résultat." : "Inventaire vide.<br>Scannez une boîte pour commencer.<br><br><a href=\"guide.html\">📖 Lire le mode d'emploi</a>"}</div>`;
     return;
   }
   $("#invList").innerHTML = list.map(({ it, st }) => {
